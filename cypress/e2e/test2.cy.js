@@ -1,6 +1,4 @@
 describe('SauceDemo Tests', () => {
-
-    // Custom login + logout commands inline
     Cypress.Commands.add('login', (username, password) => {
         cy.get('[data-test="username"]').type(username)
         cy.get('[data-test="password"]').type(password)
@@ -55,13 +53,8 @@ describe('SauceDemo Tests', () => {
         cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
         cy.get('[data-test="add-to-cart-sauce-labs-fleece-jacket"]').click()
 
-        // Check cart badge shows 3
         cy.get('.shopping_cart_badge').should('contain', '3')
-
-        // Navigate to the cart page
         cy.get('[data-test="shopping-cart-link"]').click()
-
-        // Now cart items exist on this page
         cy.get('.cart_item').should('have.length', 3)
     })
 
@@ -99,10 +92,6 @@ describe('SauceDemo Tests', () => {
             expect(priceValues).to.deep.equal(sorted)
         })
     })
-
-    // ---------------------------
-    // EXTRA TESTS FOR COMPLEXITY
-    // ---------------------------
 
     it('login fails with wrong credentials', () => {
         cy.get('[data-test="username"]').type("wrong_user")
