@@ -1,51 +1,62 @@
-describe('test', () => {
-    beforeEach('go to site', () => {
-        cy.request('https://www.saucedemo.com')
-            .should((response) => {
-                expect(response.status).to.eq(200)
-            })
-        cy.visit("https://www.saucedemo.com")
-        cy.get('[data-test="username"]').type("standard_user")
-        cy.get('[data-test="password"]').type("secret_sauce")
+describe('SauceDemo Tests', () => {
+    Cypress.Commands.add('login', (username, password) => {
+        cy.get('[data-test="username"]').type(username)
+        cy.get('[data-test="password"]').type(password)
         cy.get('[data-test="login-button"]').click()
     })
-    it('login error', () => {
+
+    Cypress.Commands.add('logout', () => {
         cy.get('#react-burger-menu-btn').click()
         cy.get('[data-test="logout-sidebar-link"]').click()
-        cy.get('[data-test="username"]').type("locked_out_user")
-        cy.get('[data-test="password"]').type("secret_sauce")
-        cy.get('[data-test="login-button"]').click()
-        cy.get('[data-test="error"]').should('exist')
     })
-    it('add to cart', () => {
-        cy.get('.product_sort_container')
-            .select('hilo')
-        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-bolt-t-shirt"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-fleece-jacket"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
-        cy.get('[data-test="remove-sauce-labs-backpack"]').click()
+
+    beforeEach(() => {
+        cy.visit('https://www.saucedemo.com')
     })
-    it('order', () => {
-        cy.get('.product_sort_container')
-            .select('hilo')
+
+    it('login with multiple users (fixture)', () => {
+        // const users = [
+        //     { username: "standard_user", password: "secret_sauce" },
+        //     { username: "locked_out_user", password: "secret_sauce" },
+        //     { username: "problem_user", password: "secret_sauce" }
+        // ]
+        cy.fixture('users').then((users) => {
+            users.forEach((user) => {
+                cy.visit('https://www.saucedemo.com')
+                cy.login(user.username, user.password)
+
+                if (user.username !== "locked_out_user") {
+                    cy.logout()
+                }
+            })
+        })
+    })
+
+    it('add to cart and check count', () => {
+        cy.login('standard_user', 'secret_sauce')
         cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-bolt-t-shirt"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-fleece-jacket"]').click()
         cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
-        cy.get('[data-test="remove-sauce-labs-backpack"]').click()
+        cy.get('[data-test="add-to-cart-sauce-labs-fleece-jacket"]').click()
+
+        cy.get('.shopping_cart_badge').should('contain', '3')
         cy.get('[data-test="shopping-cart-link"]').click()
-        cy.get('[data-test="remove-sauce-labs-bike-light"]').click()
-        cy.get('[data-test="continue-shopping"]').click()
-        cy.get('[data-test="add-to-cart-sauce-labs-onesie"]').click()
+        cy.get('.cart_item').should('have.length', 3)
+    })
+
+    it('order flow with total validation', () => {
+        cy.login('standard_user', 'secret_sauce')
+        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
+        cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
         cy.get('[data-test="shopping-cart-link"]').click()
         cy.get('[data-test="checkout"]').click()
-        cy.get('[data-test="firstName"]').type("name")
-        cy.get('[data-test="lastName"]').type("surname")
+
+        cy.get('[data-test="firstName"]').type("ime")
+        cy.get('[data-test="lastName"]').type("prezime")
         cy.get('[data-test="postalCode"]').type("1000")
         cy.get('[data-test="continue"]').click()
-        let sum = 0;
-        cy.get('[data-test="inventory-item-price"]').each(($el) => {
+
+        let sum = 0
+        cy.get('.inventory_item_price').each(($el) => {
             sum += +$el.text().replace('$', '')
         }).then(() => {
             cy.get('[data-test="subtotal-label"]').then(($subtotal) => {
@@ -56,4 +67,64 @@ describe('test', () => {
         cy.get('[data-test="finish"]').click()
         cy.get('[data-test="complete-header"]').should('be.visible')
     })
+
+    it('sorting works correctly', () => {
+        cy.login('standard_user', 'secret_sauce')
+        cy.get('.product_sort_container').select('lohi')
+        cy.get('.inventory_item_price').then(($prices) => {
+            const priceValues = [...$prices].map(el => parseFloat(el.innerText.replace('$','')))
+            const sorted = [...priceValues].sort((a, b) => a - b)
+            expect(priceValues).to.deep.equal(sorted)
+        })
+    })
+
+    it('login fails with wrong credentials', () => {
+        cy.get('[data-test="username"]').type("random")
+        cy.get('[data-test="password"]').type("random")
+        cy.get('[data-test="login-button"]').click()
+        cy.get('[data-test="error"]').should('be.visible')
+    })
+
+    it('remove items from cart updates count', () => {
+        cy.login('standard_user', 'secret_sauce')
+        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
+        cy.get('[data-test="shopping-cart-link"]').click()
+        cy.get('[data-test="remove-sauce-labs-backpack"]').click()
+        cy.get('.cart_item').should('have.length', 0)
+        cy.get('.shopping_cart_badge').should('not.exist')
+    })
+
+    it('checkout requires all fields', () => {
+        cy.login('standard_user', 'secret_sauce')
+        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
+        cy.get('[data-test="shopping-cart-link"]').click()
+        cy.get('[data-test="checkout"]').click()
+        cy.get('[data-test="continue"]').click()
+        cy.get('[data-test="error"]').should('be.visible')
+    })
+
+    it('all sorting options work correctly', () => {
+        const sortOptions = [
+            { value: 'az', comparator: (a, b) => a.localeCompare(b), selector: '.inventory_item_name' },
+            { value: 'za', comparator: (a, b) => b.localeCompare(a), selector: '.inventory_item_name' },
+            { value: 'lohi', comparator: (a, b) => a - b, selector: '.inventory_item_price' },
+            { value: 'hilo', comparator: (a, b) => b - a, selector: '.inventory_item_price' },
+        ]
+
+        cy.login('standard_user', 'secret_sauce')
+
+        sortOptions.forEach(({ value, comparator, selector }) => {
+            cy.get('.product_sort_container').select(value)
+            cy.get(selector).then(($els) => {
+                const values = [...$els].map(el =>
+                    selector.includes('price')
+                        ? parseFloat(el.innerText.replace('$',''))
+                        : el.innerText
+                )
+                const sorted = [...values].sort(comparator)
+                expect(values).to.deep.equal(sorted)
+            })
+        })
+    })
+
 })
