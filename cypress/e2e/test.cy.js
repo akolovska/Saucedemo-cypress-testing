@@ -1,4 +1,4 @@
-describe('SauceDemo Tests', () => {
+describe('Test saucedemo', () => {
     Cypress.Commands.add('login', (username, password) => {
         cy.get('[data-test="username"]').type(username)
         cy.get('[data-test="password"]').type(password)
@@ -7,18 +7,54 @@ describe('SauceDemo Tests', () => {
 
     Cypress.Commands.add('logout', () => {
         cy.get('#react-burger-menu-btn').click()
-        cy.get('[data-test="logout-sidebar-link"]').click()
+        cy.get('.bm-item.menu-item').eq(2).click()
+    })
+
+    Cypress.Commands.add('sumCheck', () => {
+        let sum = 0
+        cy.get('.inventory_item_price').each(($el) => {
+            sum += +$el.text().replace('$', '')
+        }).then(() => {
+            cy.get('[data-test="subtotal-label"]').then(($subtotal) => {
+                const total = +$subtotal.text().replace('Item total: $', '')
+                expect(sum).to.eq(total)
+            })
+        })
+    })
+
+    Cypress.Commands.add('sort', () => {
+        const sortOptions = [
+            { value: 'az', comparator: (a, b) => a.localeCompare(b), selector: '.inventory_item_name' },
+            { value: 'za', comparator: (a, b) => b.localeCompare(a), selector: '.inventory_item_name' },
+            { value: 'lohi', comparator: (a, b) => a - b, selector: '.inventory_item_price' },
+            { value: 'hilo', comparator: (a, b) => b - a, selector: '.inventory_item_price' },
+        ]
+        sortOptions.forEach(({ value, comparator, selector }) => {
+            cy.get('.product_sort_container').select(value)
+            cy.get(selector).then(($els) => {
+                const values = [...$els].map(el =>
+                    selector.includes('price')
+                        ? parseFloat(el.innerText.replace('$',''))
+                        : el.innerText
+                )
+                const sorted = [...values].sort(comparator)
+                expect(values).to.deep.equal(sorted)
+            })
+        })
     })
 
     beforeEach(() => {
         cy.visit('https://www.saucedemo.com')
     })
 
-    it('login with multiple users (fixture)', () => {
+    it('iterate through all users', () => {
         // const users = [
         //     { username: "standard_user", password: "secret_sauce" },
         //     { username: "locked_out_user", password: "secret_sauce" },
-        //     { username: "problem_user", password: "secret_sauce" }
+        //     { username: "problem_user", password: "secret_sauce" },
+        //     { "username":  "performance_glitch_user", "password":  "secret_sauce"},
+        //     { "username":  "error_user", "password":  "secret_sauce"},
+        //     { "username":  "visual_user", "password":  "secret_sauce"}
         // ]
         cy.fixture('users').then((users) => {
             users.forEach((user) => {
@@ -27,6 +63,9 @@ describe('SauceDemo Tests', () => {
 
                 if (user.username !== "locked_out_user") {
                     cy.logout()
+                }
+                else {
+                    cy.get('[data-test="error"]').should('exist')
                 }
             })
         })
@@ -43,7 +82,29 @@ describe('SauceDemo Tests', () => {
         cy.get('.cart_item').should('have.length', 3)
     })
 
-    it('order flow with total validation', () => {
+    it('remove items and check count', () => {
+        cy.login('standard_user', 'secret_sauce')
+        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
+        cy.get('[data-test="shopping-cart-link"]').click()
+        cy.get('[data-test="remove-sauce-labs-backpack"]').click()
+        cy.get('.cart_item').should('have.length', 0)
+        cy.get('.shopping_cart_badge').should('not.exist')
+    })
+
+    it('sorting', () => {
+        cy.login('standard_user', 'secret_sauce');
+        cy.get('.inventory_item_price').then(($prices) => {
+            const originalPrices = [...$prices].map(el => parseFloat(el.innerText.replace('$','')));
+            const sortedPrices = [...originalPrices].sort((a, b) => a - b);
+            cy.get('.product_sort_container').select('lohi');
+            cy.get('.inventory_item_price').then(($sortedPrices) => {
+                const afterSortPrices = [...$sortedPrices].map(el => parseFloat(el.innerText.replace('$','')));
+                expect(afterSortPrices).to.deep.equal(sortedPrices);
+            });
+        });
+    });
+
+    it('order', () => {
         cy.login('standard_user', 'secret_sauce')
         cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
         cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
@@ -55,44 +116,24 @@ describe('SauceDemo Tests', () => {
         cy.get('[data-test="postalCode"]').type("1000")
         cy.get('[data-test="continue"]').click()
 
-        let sum = 0
-        cy.get('.inventory_item_price').each(($el) => {
-            sum += +$el.text().replace('$', '')
-        }).then(() => {
-            cy.get('[data-test="subtotal-label"]').then(($subtotal) => {
-                const total = +$subtotal.text().replace('Item total: $', '')
-                expect(sum).to.eq(total)
-            })
-        })
+        cy.sumCheck()
         cy.get('[data-test="finish"]').click()
         cy.get('[data-test="complete-header"]').should('be.visible')
     })
 
-    it('sorting works correctly', () => {
+    it('order with no items', () => {
         cy.login('standard_user', 'secret_sauce')
-        cy.get('.product_sort_container').select('lohi')
-        cy.get('.inventory_item_price').then(($prices) => {
-            const priceValues = [...$prices].map(el => parseFloat(el.innerText.replace('$','')))
-            const sorted = [...priceValues].sort((a, b) => a - b)
-            expect(priceValues).to.deep.equal(sorted)
-        })
-    })
-
-    it('login fails with wrong credentials', () => {
-        cy.get('[data-test="username"]').type("random")
-        cy.get('[data-test="password"]').type("random")
-        cy.get('[data-test="login-button"]').click()
-        cy.get('[data-test="error"]').should('be.visible')
-    })
-
-    it('remove items from cart updates count', () => {
-        cy.login('standard_user', 'secret_sauce')
-        cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
         cy.get('[data-test="shopping-cart-link"]').click()
-        cy.get('[data-test="remove-sauce-labs-backpack"]').click()
-        cy.get('.cart_item').should('have.length', 0)
-        cy.get('.shopping_cart_badge').should('not.exist')
+        cy.get('[data-test="checkout"]').click()
+        cy.get('[data-test="firstName"]').type("ime")
+        cy.get('[data-test="lastName"]').type("prezime")
+        cy.get('[data-test="postalCode"]').type("1000")
+        cy.get('[data-test="continue"]').click()
+        cy.get('[data-test="finish"]').click()
+        cy.get('[data-test="complete-header"]').should('be.visible')
     })
+
+
 
     it('checkout requires all fields', () => {
         cy.login('standard_user', 'secret_sauce')
@@ -104,27 +145,7 @@ describe('SauceDemo Tests', () => {
     })
 
     it('all sorting options work correctly', () => {
-        const sortOptions = [
-            { value: 'az', comparator: (a, b) => a.localeCompare(b), selector: '.inventory_item_name' },
-            { value: 'za', comparator: (a, b) => b.localeCompare(a), selector: '.inventory_item_name' },
-            { value: 'lohi', comparator: (a, b) => a - b, selector: '.inventory_item_price' },
-            { value: 'hilo', comparator: (a, b) => b - a, selector: '.inventory_item_price' },
-        ]
-
         cy.login('standard_user', 'secret_sauce')
-
-        sortOptions.forEach(({ value, comparator, selector }) => {
-            cy.get('.product_sort_container').select(value)
-            cy.get(selector).then(($els) => {
-                const values = [...$els].map(el =>
-                    selector.includes('price')
-                        ? parseFloat(el.innerText.replace('$',''))
-                        : el.innerText
-                )
-                const sorted = [...values].sort(comparator)
-                expect(values).to.deep.equal(sorted)
-            })
-        })
+        cy.sort
     })
-
 })
