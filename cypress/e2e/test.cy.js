@@ -30,15 +30,22 @@ describe('Test saucedemo', () => {
             { value: 'hilo', comparator: (a, b) => b - a, selector: '.inventory_item_price' },
         ]
         sortOptions.forEach(({ value, comparator, selector }) => {
-            cy.get('.product_sort_container').select(value)
             cy.get(selector).then(($els) => {
-                const values = [...$els].map(el =>
+                const original = [...$els].map(el =>
                     selector.includes('price')
-                        ? parseFloat(el.innerText.replace('$',''))
+                        ? parseFloat(el.innerText.replace('$', ''))
                         : el.innerText
                 )
-                const sorted = [...values].sort(comparator)
-                expect(values).to.deep.equal(sorted)
+                const expected = [...original].sort(comparator)
+                cy.get('.product_sort_container').select(value)
+                cy.get(selector).then(($sortedEls) => {
+                    const afterSort = [...$sortedEls].map(el =>
+                        selector.includes('price')
+                            ? parseFloat(el.innerText.replace('$', ''))
+                            : el.innerText
+                    )
+                    expect(afterSort).to.deep.equal(expected)
+                })
             })
         })
     })
@@ -142,8 +149,7 @@ describe('Test saucedemo', () => {
         cy.get('[data-test="error"]').should('be.visible')
     })
 
-    it('all sorting options work correctly', () => {
-        cy.login('standard_user', 'secret_sauce')
+    it('all sorting options work', () => {
         cy.sort
     })
 })
