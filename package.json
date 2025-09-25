@@ -8,6 +8,6 @@
   },
   "private": true,
   "dependencies": {
-    "cypress": "^15.2.0"
+    "cypress": "^15.3.0"
   }
 }

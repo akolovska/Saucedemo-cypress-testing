@@ -42,6 +42,26 @@ describe('Test saucedemo', () => {
             })
         })
     })
+    Cypress.Commands.add('isSame', () => {
+        cy.get('.inventory_item_price').then(($prices) => {
+            const originalPrices = [...$prices].map(el => parseFloat(el.innerText.replace('$','')));
+            const sortedPrices = [...originalPrices].sort((a, b) => a - b);
+            cy.get('.product_sort_container').select('lohi');
+            cy.get('.inventory_item_price').then(($sortedPrices) => {
+                const afterSortPrices = [...$sortedPrices].map(el => parseFloat(el.innerText.replace('$','')));
+                expect(afterSortPrices).to.deep.equal(sortedPrices);
+            });
+        });
+    })
+    Cypress.Commands.add('checkout', () => {
+        cy.get('[data-test="shopping-cart-link"]').click()
+        cy.get('[data-test="checkout"]').click()
+
+        cy.get('[data-test="firstName"]').type("ime")
+        cy.get('[data-test="lastName"]').type("prezime")
+        cy.get('[data-test="postalCode"]').type("1000")
+        cy.get('[data-test="continue"]').click()
+    })
 
     beforeEach(() => {
         cy.visit('https://www.saucedemo.com')
@@ -93,29 +113,14 @@ describe('Test saucedemo', () => {
 
     it('sorting', () => {
         cy.login('standard_user', 'secret_sauce');
-        cy.get('.inventory_item_price').then(($prices) => {
-            const originalPrices = [...$prices].map(el => parseFloat(el.innerText.replace('$','')));
-            const sortedPrices = [...originalPrices].sort((a, b) => a - b);
-            cy.get('.product_sort_container').select('lohi');
-            cy.get('.inventory_item_price').then(($sortedPrices) => {
-                const afterSortPrices = [...$sortedPrices].map(el => parseFloat(el.innerText.replace('$','')));
-                expect(afterSortPrices).to.deep.equal(sortedPrices);
-            });
-        });
+        cy.isSame()
     });
 
     it('order', () => {
         cy.login('standard_user', 'secret_sauce')
         cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
         cy.get('[data-test="add-to-cart-sauce-labs-bike-light"]').click()
-        cy.get('[data-test="shopping-cart-link"]').click()
-        cy.get('[data-test="checkout"]').click()
-
-        cy.get('[data-test="firstName"]').type("ime")
-        cy.get('[data-test="lastName"]').type("prezime")
-        cy.get('[data-test="postalCode"]').type("1000")
-        cy.get('[data-test="continue"]').click()
-
+        cy.checkout()
         cy.sumCheck()
         cy.get('[data-test="finish"]').click()
         cy.get('[data-test="complete-header"]').should('be.visible')
@@ -123,12 +128,7 @@ describe('Test saucedemo', () => {
 
     it('order with no items', () => {
         cy.login('standard_user', 'secret_sauce')
-        cy.get('[data-test="shopping-cart-link"]').click()
-        cy.get('[data-test="checkout"]').click()
-        cy.get('[data-test="firstName"]').type("ime")
-        cy.get('[data-test="lastName"]').type("prezime")
-        cy.get('[data-test="postalCode"]').type("1000")
-        cy.get('[data-test="continue"]').click()
+        cy.checkout()
         cy.get('[data-test="finish"]').click()
         cy.get('[data-test="complete-header"]').should('be.visible')
     })
