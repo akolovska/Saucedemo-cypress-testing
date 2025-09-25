@@ -133,8 +133,6 @@ describe('Test saucedemo', () => {
         cy.get('[data-test="complete-header"]').should('be.visible')
     })
 
-
-
     it('checkout requires all fields', () => {
         cy.login('standard_user', 'secret_sauce')
         cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
