@@ -98,6 +98,11 @@ describe('Test saucedemo', () => {
         })
     })
 
+    it('login with no data', () => {
+        cy.get('[data-test="login-button"]').click()
+        cy.get('[data-test="error"]').should('exist')
+    })
+
     it('add to cart and check count', () => {
         cy.login('standard_user', 'secret_sauce')
         cy.get('[data-test="add-to-cart-sauce-labs-backpack"]').click()
