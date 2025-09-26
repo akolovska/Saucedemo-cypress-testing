@@ -102,6 +102,12 @@ describe('Test saucedemo', () => {
         cy.get('[data-test="login-button"]').click()
         cy.get('[data-test="error"]').should('exist')
     })
+    it('login with invalid data', () => {
+        cy.get('[data-test="username"]').type('random')
+        cy.get('[data-test="password"]').type('random')
+        cy.get('[data-test="login-button"]').click()
+        cy.get('[data-test="error"]').should('exist')
+    })
 
     it('add to cart and check count', () => {
         cy.login('standard_user', 'secret_sauce')
